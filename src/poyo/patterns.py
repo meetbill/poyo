@@ -42,6 +42,43 @@ _LIST_ITEM = _BLANK_LINE + r"|" + _COMMENT + r"|" + _LIST_VALUE
 
 _LIST = _SECTION + r"(?P<items>(?:" + _LIST_ITEM + r")*" + _LIST_VALUE + r")"
 
+####################################
+def get_listdict_pattern(level):
+    """
+    Args:
+        level :当前的段应该处于的 level，需要使用预测值
+    eg.
+    =======================================
+    files:-----------------------------level
+      - source: /index.html
+        destination1: /var/www/html/1/
+        destination2: /var/www/html/2/
+      - source: /index.html
+        destination1: /var/www/html/1/
+        destination2: /var/www/html/2/
+    {level_blank} 为 destination 行前部分首列到 "-" 列需要的空格(level+2)
+
+    如下实现有点问题，会将上面内容全匹配为 _LISTDICT_VALUE
+    不过已经可以用于捕获 list-dict 的功能
+    =======================================
+    """
+    _LINE_DICT = r"($\n{level_blank}.*: .*)*".format(level_blank = " "*(level+2))
+    _LISTDICT_VALUE = (
+        _BLANK
+        + r"-"
+        + _BLANK
+        + r"('.*?'|\".*?\"|[^#\n]+?)"
+        + _INLINE_COMMENT
+        + _LINE_DICT
+        + _OPT_NEWLINE
+    )
+    _LISTDICT_ITEM = _BLANK_LINE + r"|" + _COMMENT + r"|" + _LISTDICT_VALUE
+
+    _LISTDICT = _SECTION + r"(?P<items>(?:" + _LISTDICT_ITEM + r")*" + _LISTDICT_VALUE + r")"
+    LISTDICT = re.compile(_LISTDICT, re.MULTILINE)
+    return LISTDICT
+####################################
+
 _NULL = r"\b(null|Null|NULL)\b|~"
 _TRUE = r"\b(true|True|TRUE)\b"
 _FALSE = r"\b(false|False|FALSE)\b"

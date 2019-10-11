@@ -1,4 +1,20 @@
 # poyo
+<!-- vim-markdown-toc GFM -->
+
+* [Installation](#installation)
+* [Usage](#usage)
+* [Example](#example)
+    * [Input YAML string](#input-yaml-string)
+    * [Output Python dict](#output-python-dict)
+* [Logging](#logging)
+    * [Disable Logging](#disable-logging)
+    * [Example Debug Logging Config](#example-debug-logging-config)
+    * [Example Debug Logging Messages](#example-debug-logging-messages)
+* [About this project](#about-this-project)
+* [Community](#community)
+* [License](#license)
+
+<!-- vim-markdown-toc -->
 
 A lightweight YAML Parser for Python. 🐓
 
@@ -84,7 +100,12 @@ default_context: # foobar
         - 'sphinx'
 
         - null
-    # 今日は
+    # 测试列表中的字典
+    list_dict:
+        - source: /index.html
+            destination: /var/www/html/
+        - source: /meetbill.jpg
+            destination: /var/www/images/
 zZz: True
 NullValue: Null
 
@@ -101,34 +122,28 @@ Hello World:
 ### Output Python dict
 
 ```python
-{
-    u"default_context": {
-        u"greeting": u"こんにちは",
-        u"email": u"raphael@hackebrot.de",
-        u"docs": True,
-        u"gui": False,
-        u"lektor": "0.0.0.0:5000",
-        u"relative-root": "/",
-        123: 456.789,
-        u"some:int": 1000000,
-        u"foo": u"hallo #welt",
-        u"longtext": (
-            u"This is a multiline string. It can contain all "
-            u"manners of characters.\nSingle line breaks are "
-            u"ignored, but blank linkes cause line breaks.\n"
-        ),
-        u"trueish": u"Falseeeeeee",
-        u"blog": u"raphael.codes",
-        u"doc_tools": [u"mkdocs", u"sphinx", None],
-    },
-    u"zZz": True,
-    u"NullValue": None,
-    u"Hello World": {
-        None: u"This is madness",
-        u"gh": u"https://github.com/{0}.git",
-    },
-    u"Yay #python": u"Cool!",
-}
+{   u'Hello World': {   None: u'This is madness',
+                        u'gh': u'https://github.com/{0}.git'},
+    u'NullValue': None,
+    u'Yay #python': u'Cool!',
+    u'default_context': {   123: 456.789,
+                            u'blog': u'raphael.codes',
+                            u'doc_tools': [u'mkdocs', u'sphinx', None],
+                            u'docs': True,
+                            u'email': u'raphael@hackebrot.de',
+                            u'foo': u'hallo #welt',
+                            u'greeting': u'\u3053\u3093\u306b\u3061\u306f',
+                            u'gui': False,
+                            u'lektor': u'0.0.0.0:5000',
+                            u'list_dict': [   {   u'destination': u'/var/www/html/',
+                                                  u'source': u'/index.html'},
+                                              {   u'destination': u'/var/www/images/',
+                                                  u'source': u'/meetbill.jpg'}],
+                            u'longtext': u'This is a multiline string. It can contain all manners of characters.\nSingle line breaks are ignored, but blank linkes cause line breaks.\n',
+                            u'relative-root': u'/',
+                            u'some:int': 1000000,
+                            u'trueish': u'Falseeeeeee'},
+    u'zZz': True}
 ```
 
 ## Logging

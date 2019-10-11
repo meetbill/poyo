@@ -2,6 +2,7 @@
 
 import functools
 import logging
+import copy
 
 from ._nodes import Root, Section, Simple
 
@@ -27,6 +28,7 @@ from .patterns import (
     INT,
     STR,
     MULTILINE_STR,
+    get_listdict_pattern,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,21 +79,34 @@ def log_callback(wrapped_function):
 
 
 class _Parser(object):
-    def __init__(self, source):
+    def __init__(self, source,indent=2):
         self.pos = 0
         self.source = source
         self.max_pos = len(self.source)
 
         self.root = Root()
         self.seen = [self.root]
+        self.level_cur = 0
+        self.level_next = 0
+        # yaml 缩进，用于预测下一行的缩进值
+        self.indent = indent
 
         self.rules = (
+            # 注释
             (COMMENT, self.parse_comment),
+            # 空行
             (BLANK_LINE, self.parse_blankline),
+            # 多yaml 标识，"---"
             (DASHES, self.parse_dashes),
+            # 列表字典
+            ("listdict", self.parse_listdict),
+            # 列表
             (LIST, self.parse_list),
+            # 多行文本
             (MULTILINE_STR, self.parse_multiline_str),
+            # k/v
             (SIMPLE, self.parse_simple),
+            # SECTION
             (SECTION, self.parse_section),
         )
 
@@ -146,6 +161,7 @@ class _Parser(object):
     def parse_list(self, match):
         groups = match.groupdict()
         level = len(groups["indent"])
+        self.level_cur = level
         parent = self.find_at_level(level)
 
         item_matches = LIST_ITEM.findall(groups["items"])
@@ -156,10 +172,66 @@ class _Parser(object):
         return Simple(variable, level, list_items, parent=parent)
 
     @log_callback
+    def parse_listdict(self, match):
+        groups = match.groupdict()
+        level = len(groups["indent"])
+        self.level_cur = level
+        parent = self.find_at_level(level)
+
+        # 此处解析下 groups["items"]
+        """
+        groups["items"] 为如下内容
+          - source: /index.html
+            destination: /var/www/html/
+            destinationceshi: /var/www/html/
+          - source: /meetbill.jpg
+            destination: /var/www/images/
+          - source: /meetbill.doc
+            destination: /var/www/doc/
+        """
+        #item_matches = LIST_ITEM.findall(groups["items"])
+
+        #list_items = [self.read_from_tag(value) for value in item_matches]
+
+        variable = self.read_from_tag(groups["variable"])
+        list_items = []
+        item_dict = {}
+        for index,line in enumerate(groups["items"].split("\n"),1):
+            line_new = line.strip()
+            if not line_new or line_new.startswith("#"):
+                continue
+            # 标识列表中元素的开始
+            if line_new.startswith("-"):
+                # 如果 item_dict 不为空，则将上次的 item_dict 更新到 list_items
+                if item_dict:
+                    tmp_dict = copy.deepcopy(item_dict)
+                    list_items.append(tmp_dict)
+                    item_dict.clear()
+                # 去掉行首的 "-"
+                line_new=line_new[1:].strip()
+                line_list=line_new.split(": ")
+                # 当list 不是以 : 切割的时候，则以整行加到 list_items
+                if len(line_list) != 2:
+                   list_items.append(self.read_from_tag(line_new))
+                else:
+                   item_dict[line_list[0]] = self.read_from_tag(line_list[1])
+                continue
+            line_list=line_new.split(": ")
+            item_dict[line_list[0]] = self.read_from_tag(line_list[1])
+        # 保存最后一个字典元素到列表中
+        if item_dict:
+            tmp_dict = copy.deepcopy(item_dict)
+            list_items.append(tmp_dict)
+            item_dict.clear()
+
+        return Simple(variable, level, list_items, parent=parent)
+
+    @log_callback
     def parse_simple(self, match):
         groups = match.groupdict()
 
         level = len(groups["indent"])
+        self.level_cur = level
         parent = self.find_at_level(level)
 
         variable = self.read_from_tag(groups["variable"])
@@ -172,6 +244,9 @@ class _Parser(object):
         groups = match.groupdict()
 
         level = len(groups["indent"])
+        self.level_cur = level
+        # 预测下一行的 level = 当前 level + 缩进值
+        self.level_next = level + self.indent
         parent = self.find_at_level(level)
 
         return Section(self.read_from_tag(groups["variable"]), level, parent=parent)
@@ -245,13 +320,19 @@ class _Parser(object):
         If none of the pattern match a NoMatchException is raised.
         """
         for pattern, callback in self.rules:
+            if pattern == "listdict":
+                pattern = get_listdict_pattern(self.level_next)
             match = pattern.match(self.source, pos=self.pos)
 
             if not match:
                 continue
 
             try:
+                # 假如匹配到了的话，会返回一个 node 点
+                # self.level_next 是个猜测值
+                logging.debug("[next]===========" + str(self.level_next))
                 node = callback(match)
+                logging.debug("[cur]^^^^^^^^^^^^" + str(self.level_cur))
             except IgnoredMatchException:
                 pass
             else:
@@ -275,6 +356,6 @@ class _Parser(object):
         return self.root()
 
 
-def parse_string(string):
-    parser = _Parser(string)
+def parse_string(string,indent=2):
+    parser = _Parser(string,indent=indent)
     return parser()
